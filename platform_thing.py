@@ -3,7 +3,7 @@ from primitives import Pose
 import pygame
 import time
 
-class Platform:
+class PlatformThing:
     SCALED = {}
 
     def __init__(self, frame, position, tutorial = False):

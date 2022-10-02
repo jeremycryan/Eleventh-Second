@@ -13,7 +13,7 @@ from spark import Spark
 from player import Player
 import math
 
-from platform import Platform
+from platform_thing import PlatformThing
 from timestepper import Timestepper
 
 import sys
@@ -230,10 +230,10 @@ class GameFrame(Frame):
         self.gears = [self.gear_1, self.gear_2]
         self.sparks = []
         self.foreground_sparks = []
-        self.platforms = [Platform(self, (c.WINDOW_WIDTH//2  + random.random() * 200 - 100, 120), tutorial=True),
+        self.platforms = [PlatformThing(self, (c.WINDOW_WIDTH//2  + random.random() * 200 - 100, 120), tutorial=True),
                           Enemy(self, (c.WINDOW_WIDTH//2 + random.random() * 250 - 200, -1100)),
                           Enemy(self, (c.WINDOW_WIDTH // 2 + random.random() * 250 - 200, -1850)),
-                          Platform(self, (c.WINDOW_WIDTH//2 + random.random() * 200 - 100, -3000))]
+                          PlatformThing(self, (c.WINDOW_WIDTH//2 + random.random() * 200 - 100, -3000))]
         self.explosions = []
         self.refill_sparks()
 
@@ -484,7 +484,7 @@ class GameFrame(Frame):
         if self.platforms:
             top_platform = self.platforms[0]
         else:
-            top_platform = Platform(self, (0, c.WINDOW_HEIGHT))
+            top_platform = PlatformThing(self, (0, c.WINDOW_HEIGHT))
         while top_platform.get_apparent_y() > 0:
             self.spawn_new_platform(top_platform)
             self.platforms.sort(key=lambda x: x.get_apparent_y())
@@ -583,7 +583,7 @@ class GameFrame(Frame):
 
         y = top_platform.position.y - (random.random() * height_var + height_min)
 
-        new_platform = Platform(self, (x, y))
+        new_platform = PlatformThing(self, (x, y))
 
         print(enemy_chance)
         if random.random() < enemy_chance:
