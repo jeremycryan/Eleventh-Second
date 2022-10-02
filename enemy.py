@@ -6,6 +6,8 @@ from pyracy.sprite_tools import Sprite, Animation
 import random
 import math
 
+import time
+
 class Enemy:
 
     NORMAL = 0
@@ -13,7 +15,7 @@ class Enemy:
 
     SCALED = {}
 
-    def __init__(self, frame, position):
+    def __init__(self, frame, position, tutorial=False):
         self.frame = frame
         self.position = Pose(position)
         self.offset_position = Pose((0, 0))
@@ -27,6 +29,7 @@ class Enemy:
         self.shift_position = Pose((0, 0))
         self.state = Enemy.NORMAL
         self.hooked = False
+        self.tutorial = False
 
     def get_apparent_y(self):
         return ((self.position.y + self.offset_position.y))
@@ -43,9 +46,12 @@ class Enemy:
             self.collide_with_player()
 
         if self.hooked:
-            d.scale_to(abs(self.frame.player.velocity.magnitude()) * 0.3)
+            d.scale_to(abs(self.frame.player.velocity.magnitude()) * 0.4)
             self.position -= d*dt
             self.frame.player.hook.position -= d*dt
+
+        if not self.frame.player.hook.state in [2, 3]: # stuck, stuck reeling
+            self.hooked = False  # must have broken out somehow
 
     def collide_with_player(self):
         if not self.frame.player.hook.state == 3: # STUCK_REELING
@@ -61,6 +67,7 @@ class Enemy:
         player_push.x *= 10
         self.frame.player.velocity = player_push
         self.frame.player.velocity.y = min(-1500, self.frame.player.velocity.y - 2500)
+        self.frame.player.hook.un_stick()
 
     def draw(self, surface, offset=(0, 0)):
         surf, pulse_surf = self.get_speed_surf()
@@ -73,6 +80,12 @@ class Enemy:
 
         surface.blit(surf, (x, y))
         surface.blit(pulse_surf, (x, y))
+
+        if self.tutorial:
+            surf = ImageManager.load("assets/images/collect.png")
+            if time.time()%1<0.5:
+                surf = ImageManager.load("assets/images/collect_2.png")
+            surface.blit(surf, (x+5, y-15))
 
     def get_speed_surf(self):
         scales = [1.01**x for x in range(100)]

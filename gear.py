@@ -8,6 +8,9 @@ import math
 
 class Gear:
 
+    RED_SURF = {}
+    BLUE_SURF = {}
+
     def __init__(self, frame, size, position):
         self.frame = frame
         self.parallax = 0.5
@@ -17,6 +20,7 @@ class Gear:
         else:
             num = random.choice([1, 2, 3])
         path = f"assets/images/gear_{num}.png"
+        self.path = path
         self.first_load = path not in ImageManager.sounds
         self.surf = ImageManager.load(path)
         self.radius = self.surf.get_width()/2
@@ -28,10 +32,18 @@ class Gear:
         self.process_surf()
 
     def process_surf(self):
-        if self.first_load:
+        if self.path not in self.BLUE_SURF:
+            filter = self.surf.copy()
+            filter.fill((60, 90, 180))
+            Gear.BLUE_SURF[self.path] = self.surf.copy()
+            Gear.BLUE_SURF[self.path].blit(filter, (0, 0), special_flags=pygame.BLEND_ADD)
+
+        if self.path not in self.RED_SURF:
             filter = self.surf.copy()
             filter.fill((190, 60, 0))
-            self.surf.blit(filter, (0, 0), special_flags=pygame.BLEND_ADD)
+            Gear.RED_SURF[self.path] = self.surf.copy()
+            Gear.RED_SURF[self.path].blit(filter, (0, 0), special_flags=pygame.BLEND_ADD)
+        self.surf = self.RED_SURF[self.path]
 
     def align_with(self, other):
         if other.size == self.size:
@@ -48,17 +60,35 @@ class Gear:
         self.position.angle = z + angle_to
 
     def update(self, dt, events):
-        self.position.angle += self.speed * dt
+        if self.frame.rewinding:
+            factor = -5
+        else:
+            factor = 1
+        self.position.angle += self.speed * dt * factor
         self.offset_position = Pose((0, self.frame.height))
+
+        if self.frame.rewinding:
+            self.surf = self.BLUE_SURF[self.path]
+        else:
+            self.surf = self.RED_SURF[self.path]
 
     def draw(self, surface, offset=(0, 0)):
         if self.get_apparent_y() < -self.radius - 50:
             return
-        surf = pygame.transform.rotate(self.surf, self.position.angle)
-        position = self.position + self.offset_position
-        y = position.y * self.parallax + offset[1] - surf.get_height()/2
-        x = position.x + offset[0] - surf.get_width()/2
-        surface.blit(surf, (x, y))
+
+        surfs_and_ops = []
+        if not self.frame.rewinding or self.frame.rewind_intensity() > 0:
+            surfs_and_ops.append((self.RED_SURF[self.path], 255))
+        if self.frame.rewinding:
+            surfs_and_ops.append((self.BLUE_SURF[self.path], 255 * (1 - self.frame.rewind_intensity())))
+
+        for surf, op in surfs_and_ops:
+            surf = pygame.transform.rotate(surf, self.position.angle)
+            surf.set_alpha(op)
+            position = self.position + self.offset_position
+            y = position.y * self.parallax + offset[1] - surf.get_height()/2
+            x = position.x + offset[0] - surf.get_width()/2
+            surface.blit(surf, (x, y))
 
     def get_apparent_y(self):
         return (self.position.y + self.offset_position.y)* self.parallax

@@ -2,6 +2,9 @@ from enemy import Enemy
 from primitives import Pose
 import pygame
 import constants as c
+import math
+from image_manager import ImageManager
+from sound_manager import SoundManager
 
 
 class Hook:
@@ -22,6 +25,7 @@ class Hook:
         self.state = Hook.CARRIED
         self.radius = 10
         self.since_stuck = 0
+        self.end_surf = ImageManager.load("assets/images/kunai.png")
 
 
     def update(self, dt, events):
@@ -38,12 +42,21 @@ class Hook:
             if self.since_stuck > 0.1:
                 self.start_stuck_reel()
             self.since_stuck += dt
+        elif self.state == Hook.STUCK_REELING:
+            self.since_stuck += dt
+        else:
+            self.since_stuck = 0
         if self.state == Hook.REELING:
             direction = self.player.position - self.position
             direction.scale_to(Hook.REEL_VELOCITY)
             self.velocity = direction
         if self.state == Hook.DEPLOYED or self.state == Hook.REELING:
             self.position += self.velocity * dt
+            self.player.position -= self.velocity * dt * 0.3
+            if self.player.position.x < c.CHAMBER_LEFT:
+                self.player.position.x = c.CHAMBER_LEFT
+            elif self.player.position.x > c.CHAMBER_RIGHT:
+                self.player.position.x = c.CHAMBER_RIGHT
             if self.position.x < c.CHAMBER_LEFT and self.velocity.x < 0:
                 self.retract()
                 self.player.frame.shake(5, Pose((1, 0)))
@@ -67,6 +80,8 @@ class Hook:
                         self.catch()
 
         for event in events:
+            if self.player.dead:
+                break
             if event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     self.deploy()
@@ -90,11 +105,15 @@ class Hook:
                     self.hit_something(platform)
 
     def hit_something(self, thing):
+        self.player.frame.has_grappled = True
         if not self.state == Hook.DEPLOYED:
             return
+        kunai_sound = SoundManager.load("assets/sounds/kunai_hit.wav")
+        kunai_sound.set_volume(0.2)
+        kunai_sound.play()
         self.state = Hook.STUCK
         self.since_stuck = 0
-        self.player.frame.shake(15, self.player.position - self.position)
+        self.player.frame.shake(25, self.player.position - self.position)
         if isinstance(thing, Enemy):
             self.player.can_pick_up = False
             thing.hooked = True
@@ -104,8 +123,12 @@ class Hook:
 
     def un_stick(self):
         self.state = Hook.CARRIED
+        self.player.frame.has_collected = True
 
     def deploy(self):
+        self.player.frame.has_grappled = True
+        if self.player.frame.has_collected:
+            self.player.frame.has_grabbed_enemy = True
         if not self.state == Hook.CARRIED:
             return
         self.player.can_pick_up = True
@@ -114,7 +137,12 @@ class Hook:
         self.velocity = Pose(pygame.mouse.get_pos()) - (self.player.position + self.player.offset_position)
         self.velocity.scale_to(Hook.DEPLOY_VELOCITY)
 
+        sound = SoundManager.load("assets/sounds/deploy_kunai.wav")
+        sound.set_volume(0.05)
+        sound.play()
+
     def retract(self):
+        self.player.frame.has_grappled = True
         if not self.state == Hook.DEPLOYED:
             return
         self.state = Hook.REELING
@@ -127,12 +155,45 @@ class Hook:
         self.state = Hook.CARRIED
 
     def draw(self, surface, offset=(0, 0)):
+        if self.player.dead:
+            return
         if self.state == Hook.CARRIED:
             return
-        surf = pygame.Surface((20, 20))
-        surf.fill((0, 0, 255))
+        surf = self.end_surf
+        diff = self.position - self.player.position
+        surf = pygame.transform.rotate(surf, -math.atan2(diff.y, diff.x) * 180/math.pi)
         surface.blit(surf, (self.position + self.player.offset_position + Pose(offset) - Pose((surf.get_width()//2, surf.get_height()//2))).get_position())
 
-        start = (self.position + self.player.offset_position + Pose(offset)).get_position()
-        end = (self.player.position + self.player.offset_position + Pose(offset)).get_position()
-        pygame.draw.line(surface, (0, 0, 0), start, end, 2)
+        start = (self.position + self.player.offset_position + Pose(offset))
+        end = (self.player.position + self.player.offset_position + Pose(offset))
+
+        unit = end - start
+        total_length = unit.magnitude()
+        if total_length < 0.1:
+            return
+        unit.scale_to(10)
+        ortho = Pose((unit.y, -unit.x))
+        ortho.scale_to(1)
+        unit_ct = max(int(total_length/10), 1)
+        poses = [start + (unit * i) for i in range(unit_ct)] + [end]
+        length_so_far = 0
+        period = 15 - 15 * min((self.since_stuck * 2), 1)
+        for i, pose in enumerate(poses):
+            through = length_so_far/total_length
+            mag = min(20, through*35)
+            mag = min(mag, (1 - through) * 100)
+            mag = min(mag, (20 - self.since_stuck * 200))
+            mag = max(mag, 0)
+            if self.state == Hook.REELING:
+                mag = 0
+            if period < 1:
+                period = 1
+            change = ortho * math.sin(length_so_far/period) * mag
+            pose.x += change.x
+            pose.y += change.y
+            length_so_far += 10
+
+
+        poses_to_draw = [pose.get_position() for pose in poses]
+        pygame.draw.lines(surface, (0, 0, 0), False, poses_to_draw, 3)
+

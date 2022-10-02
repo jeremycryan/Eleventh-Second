@@ -1,11 +1,12 @@
 from image_manager import ImageManager
 from primitives import Pose
 import pygame
+import time
 
 class Platform:
     SCALED = {}
 
-    def __init__(self, frame, position):
+    def __init__(self, frame, position, tutorial = False):
         self.frame = frame
         self.position = Pose(position)
         self.offset_position = Pose((0, 0))
@@ -14,6 +15,8 @@ class Platform:
         self.width = self.surf.get_width()
         self.height = self.surf.get_height()
         self.state = 999
+
+        self.tutorial = tutorial
 
     def get_apparent_y(self):
         return ((self.position.y + self.offset_position.y))
@@ -29,6 +32,12 @@ class Platform:
         x = self.position.x + self.offset_position.x + offset[0] - surf.get_width()//2
         y = self.position.y + self.offset_position.y + offset[1] - surf.get_height()//2
         surface.blit(surf, (x, y))
+
+        if self.tutorial:
+            surf = ImageManager.load("assets/images/grapple.png")
+            if time.time()%1 < 0.5:
+                surf = ImageManager.load("assets/images/grapple_click.png")
+            surface.blit(surf, (x -20, y + 50))
 
     def get_speed_surf(self):
         scales = [1.01**x for x in range(100)]
