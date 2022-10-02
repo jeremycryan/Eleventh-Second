@@ -50,8 +50,8 @@ class PlatformThing:
                 continue
             break
 
-        if self.path not in Platform.SCALED:
-            Platform.SCALED[self.path] = {}
-        if scale not in Platform.SCALED[self.path]:
-            Platform.SCALED[self.path][scale] = pygame.transform.smoothscale(self.surf, (self.surf.get_width(), int(self.surf.get_height()*scale)))
-        return Platform.SCALED[self.path][scale]
+        if self.path not in PlatformThing.SCALED:
+            PlatformThing.SCALED[self.path] = {}
+        if scale not in PlatformThing.SCALED[self.path]:
+            PlatformThing.SCALED[self.path][scale] = pygame.transform.smoothscale(self.surf, (self.surf.get_width(), int(self.surf.get_height()*scale)))
+        return PlatformThing.SCALED[self.path][scale]
